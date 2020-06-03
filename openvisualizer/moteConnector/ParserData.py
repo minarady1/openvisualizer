@@ -15,10 +15,13 @@ from pydispatch import dispatcher
 from ParserException import ParserException
 import Parser
 
+import datetime
 import paho.mqtt.client as mqtt
 import threading
 import json
+import numpy as np
 
+import networkInfo
 
 def init_pkt_info():
     return {
@@ -30,6 +33,14 @@ def init_pkt_info():
                         'numCellsUsedRx' : 0,
                         'dutyCycle'      : 0
     }
+
+def data_describe (data):
+    mean= np.mean(data)
+    median = np.median(data)
+    std = np.std(data)
+    first_q = np.quantile(data, 0.25)
+    third_q = np.quantile(data, 0.75)   
+    return mean,median,std,min(data),max(data),first_q,third_q;
 
 class ParserData(Parser.Parser):
     
@@ -55,6 +66,7 @@ class ParserData(Parser.Parser):
          ]
 
         self.avg_kpi = {}
+        self.first_arrival_ts = -1
 
         self.broker                    = mqtt_broker_address
         self.mqttconnected             = False
@@ -149,6 +161,9 @@ class ParserData(Parser.Parser):
                 pkt_info['numCellsUsedRx'] = input[offset-1]
                 offset -=1
 
+                pkt_info['numNeighbors'] = input[offset-1]
+                offset -=1
+
                 pkt_info['src_id']       = ''.join(['%02x' % x for x in [input[offset-1],input[offset-2]]]) # mote id
                 src_id                   = pkt_info['src_id']
                 offset -=2
@@ -156,14 +171,33 @@ class ParserData(Parser.Parser):
                 numTicksOn               = struct.unpack('<I',''.join([chr(c) for c in input[offset-4:offset]]))[0]
                 offset -= 4
 
+                numTicksTx               = struct.unpack('<I',''.join([chr(c) for c in input[offset-4:offset]]))[0]
+                offset -= 4
+
+                numTicksRx               = struct.unpack('<I',''.join([chr(c) for c in input[offset-4:offset]]))[0]
+                offset -= 4
+
                 numTicksInTotal          = struct.unpack('<I',''.join([chr(c) for c in input[offset-4:offset]]))[0]
                 offset -= 4
 
                 pkt_info['dutyCycle']    = float(numTicksOn)/float(numTicksInTotal)    # duty cycle
-                
-                print pkt_info
+                pkt_info['dutyCycleTx']  = float(numTicksTx)/float(numTicksInTotal)    # duty cycle
+                pkt_info['dutyCycleRx']  = float(numTicksRx)/float(numTicksInTotal)    # duty cycle
+                pkt_info['dutyCycleTxRx']= (float(numTicksTx)+float(numTicksRx))/float(numTicksInTotal)    # duty cycle
+
+                #print pkt_info
                 with open('pkt_info.log'.format(),'a') as f:
                     f.write(str(pkt_info)+'\n')
+                
+                if (pkt_info['dutyCycleRx']>1 or pkt_info['dutyCycleTxRx']>1):
+                    print '>>>>>>>><<<<<<<<<<'
+                    print numTicksOn
+                    print numTicksTx
+                    print numTicksRx
+                    print numTicksInTotal
+
+                    print pkt_info
+                    print '>>>>>>>><<<<<<<<<<'
                 
                 # self.avg_kpi:
                 if src_id in self.avg_kpi:
@@ -171,17 +205,26 @@ class ParserData(Parser.Parser):
                     self.avg_kpi[src_id]['latency'].append(pkt_info['latency'])
                     self.avg_kpi[src_id]['numCellsUsedTx'].append(pkt_info['numCellsUsedTx'])
                     self.avg_kpi[src_id]['numCellsUsedRx'].append(pkt_info['numCellsUsedRx'])
+                    self.avg_kpi[src_id]['numNeighbors'].append(pkt_info['numNeighbors'])
                     self.avg_kpi[src_id]['dutyCycle'].append(pkt_info['dutyCycle'])
+                    self.avg_kpi[src_id]['dutyCycleTx'].append(pkt_info['dutyCycleTx'])
+                    self.avg_kpi[src_id]['dutyCycleRx'].append(pkt_info['dutyCycleRx'])
+                    self.avg_kpi[src_id]['dutyCycleTxRx'].append(pkt_info['dutyCycleTxRx'])
                 else:
                     self.avg_kpi[src_id] = {
                         'counter'        : [pkt_info['counter']],
                         'latency'        : [pkt_info['latency']],
                         'numCellsUsedTx' : [pkt_info['numCellsUsedTx']],
                         'numCellsUsedRx' : [pkt_info['numCellsUsedRx']],
+                        'numNeighbors'   : [pkt_info['numNeighbors']],
                         'dutyCycle'      : [pkt_info['dutyCycle'] ],
+                        'dutyCycleTx'    : [pkt_info['dutyCycleTx'] ],
+                        'dutyCycleRx'    : [pkt_info['dutyCycleRx'] ],
+                        'dutyCycleTxRx'  : [pkt_info['dutyCycleTxRx'] ],
                         'avg_cellsUsage' : 0.0,
                         'avg_latency'    : 0.0,
-                        'avg_pdr'        : 0.0
+                        'avg_pdr'        : 0.0,
+                        'avg_numNeighbors' : 0.0
                     }
 
                 if self.mqttconnected:
@@ -221,42 +264,181 @@ class ParserData(Parser.Parser):
 
         payload = {
             'token':       123,
+            'stats':{
+                'avg_numNeighbors':{},
+                'avg_cellsUsage':{},
+                'avg_latency':{},
+                'avg_dutyCycle':{},
+                'avg_dutyCycleTx':{},
+                'avg_dutyCycleRx':{},
+                'avg_dutyCycleTxRx':{},
+                'avg_pdr':{},
+            }
         }
         
 
         mote_data = self.avg_kpi[src_id]
-
         self.avg_kpi[src_id]['avg_cellsUsage'] = float(sum(mote_data['numCellsUsedTx'])/len(mote_data['numCellsUsedTx']))/float(64)
         self.avg_kpi[src_id]['avg_latency']    = sum(self.avg_kpi[src_id]['latency'])/len(self.avg_kpi[src_id]['latency'])
+        self.avg_kpi[src_id]['avg_dutyCycle']    = sum(self.avg_kpi[src_id]['dutyCycle'])/len(self.avg_kpi[src_id]['dutyCycle'])
+        self.avg_kpi[src_id]['avg_dutyCycleTx']    = sum(self.avg_kpi[src_id]['dutyCycleTx'])/len(self.avg_kpi[src_id]['dutyCycleTx'])
+        self.avg_kpi[src_id]['avg_dutyCycleRx']    = sum(self.avg_kpi[src_id]['dutyCycleRx'])/len(self.avg_kpi[src_id]['dutyCycleRx'])
+        self.avg_kpi[src_id]['avg_dutyCycleTxRx']    = sum(self.avg_kpi[src_id]['dutyCycleTxRx'])/len(self.avg_kpi[src_id]['dutyCycleTxRx'])
+        self.avg_kpi[src_id]['avg_numNeighbors']    = sum(self.avg_kpi[src_id]['numNeighbors'])/len(self.avg_kpi[src_id]['numNeighbors'])
         mote_data['counter'].sort() # sort the counter before calculating
         self.avg_kpi[src_id]['avg_pdr']        = float(len(set(mote_data['counter'])))/float(1+mote_data['counter'][-1]-mote_data['counter'][0])
 
         avg_pdr_all           = 0.0
         avg_latency_all       = 0.0
+        avg_dutyCycle_all     = 0.0
+        avg_dutyCycleTx_all   = 0.0
+        avg_dutyCycleRx_all   = 0.0
+        avg_dutyCycleTxRx_all = 0.0
         avg_numCellsUsage_all = 0.0
+        avg_numNeighbors_all  = 0.0
 
+        arr_avg_pdr_all           = []
+        arr_avg_latency_all       = []
+        arr_avg_dutyCycle_all     = []
+        arr_avg_dutyCycleTx_all   = []
+        arr_avg_dutyCycleRx_all   = []
+        arr_avg_dutyCycleTxRx_all = []
+        arr_avg_numCellsUsage_all = []
+        arr_avg_numNeighbors_all  = []
+
+        #print self.avg_kpi
         for mote, data in self.avg_kpi.items():
             avg_pdr_all           += data['avg_pdr']
+            arr_avg_pdr_all.append (data['avg_pdr'])
+            
             avg_latency_all       += data['avg_latency']
+            arr_avg_latency_all.append (data['avg_latency'])
+            
+            avg_dutyCycle_all     += data['avg_dutyCycle']
+            arr_avg_dutyCycle_all.append (data['avg_dutyCycle'])
+            
+            avg_dutyCycleTx_all     += data['avg_dutyCycleTx']
+            arr_avg_dutyCycleTx_all.append (data['avg_dutyCycleTx'])
+
+            avg_dutyCycleRx_all     += data['avg_dutyCycleRx']
+            arr_avg_dutyCycleRx_all.append (data['avg_dutyCycleRx'])
+     
+            avg_dutyCycleTxRx_all     += data['avg_dutyCycleTxRx']
+            arr_avg_dutyCycleTxRx_all.append (data['avg_dutyCycleTxRx'])
+
             avg_numCellsUsage_all += data['avg_cellsUsage']
+            arr_avg_numCellsUsage_all.append (data['avg_cellsUsage'])
+            
+            avg_numNeighbors_all += data['avg_numNeighbors']
+            arr_avg_numNeighbors_all.append (data['avg_numNeighbors'])
+            
 
         numMotes = len(self.avg_kpi)
         avg_pdr_all                = avg_pdr_all/float(numMotes)
         avg_latency_all            = avg_latency_all/float(numMotes)
+        avg_dutyCycle_all          = avg_dutyCycle_all/float(numMotes)
+        avg_dutyCycleTx_all          = avg_dutyCycleTx_all/float(numMotes)
+        avg_dutyCycleRx_all          = avg_dutyCycleRx_all/float(numMotes)
+        avg_dutyCycleTxRx_all          = avg_dutyCycleTxRx_all/float(numMotes)
         avg_numCellsUsage_all      = avg_numCellsUsage_all/float(numMotes)
+        avg_numNeighbors_all      = avg_numNeighbors_all/float(numMotes)
 
-        payload['avg_cellsUsage']  = avg_numCellsUsage_all
-        payload['avg_latency']     = avg_latency_all
-        payload['avg_pdr']         = avg_pdr_all
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_numCellsUsage_all)
+        payload['avg_cellsUsage'] = avg_numCellsUsage_all
+        payload['stats']['avg_cellsUsage']['mean']     = mean
+        payload['stats']['avg_cellsUsage']['median']   = median
+        payload['stats']['avg_cellsUsage']['std']      = std
+        payload['stats']['avg_cellsUsage']['min_v']    = min_v
+        payload['stats']['avg_cellsUsage']['max_v']    = max_v
+        payload['stats']['avg_cellsUsage']['first_q']  = first_q
+        payload['stats']['avg_cellsUsage']['third_q']  = third_q
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_latency_all)
+        payload['avg_latency'] = avg_latency_all
+        payload['stats']['avg_latency']['mean']     = mean
+        payload['stats']['avg_latency']['median']   = median
+        payload['stats']['avg_latency']['std']      = std
+        payload['stats']['avg_latency']['min_v']    = min_v
+        payload['stats']['avg_latency']['max_v']    = max_v
+        payload['stats']['avg_latency']['first_q']  = first_q
+        payload['stats']['avg_latency']['third_q']  = third_q
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_dutyCycle_all)
+        payload['avg_dutyCycle']   = avg_dutyCycle_all
+        payload['stats']['avg_dutyCycle']['mean']     = mean
+        payload['stats']['avg_dutyCycle']['median']   = median
+        payload['stats']['avg_dutyCycle']['std']      = std
+        payload['stats']['avg_dutyCycle']['min_v']    = min_v
+        payload['stats']['avg_dutyCycle']['max_v']    = max_v
+        payload['stats']['avg_dutyCycle']['first_q']  = first_q
+        payload['stats']['avg_dutyCycle']['third_q']  = third_q
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_dutyCycleTx_all)
+        payload['avg_dutyCycleTx']   = avg_dutyCycleTx_all
+        payload['stats']['avg_dutyCycleTx']['mean']     = mean
+        payload['stats']['avg_dutyCycleTx']['median']   = median
+        payload['stats']['avg_dutyCycleTx']['std']      = std
+        payload['stats']['avg_dutyCycleTx']['min_v']    = min_v
+        payload['stats']['avg_dutyCycleTx']['max_v']    = max_v
+        payload['stats']['avg_dutyCycleTx']['first_q']  = first_q
+        payload['stats']['avg_dutyCycleTx']['third_q']  = third_q
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_dutyCycleRx_all)
+        payload['avg_dutyCycleRx']   = avg_dutyCycleRx_all
+        payload['stats']['avg_dutyCycleRx']['mean']     = mean
+        payload['stats']['avg_dutyCycleRx']['median']   = median
+        payload['stats']['avg_dutyCycleRx']['std']      = std
+        payload['stats']['avg_dutyCycleRx']['min_v']    = min_v
+        payload['stats']['avg_dutyCycleRx']['max_v']    = max_v
+        payload['stats']['avg_dutyCycleRx']['first_q']  = first_q
+        payload['stats']['avg_dutyCycleRx']['third_q']  = third_q
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_dutyCycleTxRx_all)
+        payload['avg_dutyCycleTxRx']   = avg_dutyCycleTxRx_all
+        payload['stats']['avg_dutyCycleTxRx']['mean']     = mean
+        payload['stats']['avg_dutyCycleTxRx']['median']   = median
+        payload['stats']['avg_dutyCycleTxRx']['std']      = std
+        payload['stats']['avg_dutyCycleTxRx']['min_v']    = min_v
+        payload['stats']['avg_dutyCycleTxRx']['max_v']    = max_v
+        payload['stats']['avg_dutyCycleTxRx']['first_q']  = first_q
+        payload['stats']['avg_dutyCycleTxRx']['third_q']  = third_q
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_pdr_all)
+        payload['avg_pdr']   = avg_pdr_all
+        payload['stats']['avg_pdr']['mean']     = mean
+        payload['stats']['avg_pdr']['median']   = median
+        payload['stats']['avg_pdr']['std']      = std
+        payload['stats']['avg_pdr']['min_v']    = min_v
+        payload['stats']['avg_pdr']['max_v']    = max_v
+        payload['stats']['avg_pdr']['first_q']  = first_q
+        payload['stats']['avg_pdr']['third_q']  = third_q    
+        
+        mean,median,std,min_v,max_v,first_q,third_q = data_describe(arr_avg_numNeighbors_all)
+        payload['avg_numNeighbors']   = avg_numNeighbors_all
+        payload['stats']['avg_numNeighbors']['mean']     = mean
+        payload['stats']['avg_numNeighbors']['median']   = median
+        payload['stats']['avg_numNeighbors']['std']      = std
+        payload['stats']['avg_numNeighbors']['min_v']    = min_v
+        payload['stats']['avg_numNeighbors']['max_v']    = max_v
+        payload['stats']['avg_numNeighbors']['first_q']  = first_q
+        payload['stats']['avg_numNeighbors']['third_q']  = third_q    
+
+
         payload['src_id']          = src_id
 
-
-        print payload
+        #print payload
+        payload ['rpl_node_count']=networkInfo.rpl_nodes_count
+        payload ['rpl_churn']=networkInfo.rpl_churn
+        delta= datetime.datetime.now() - networkInfo.set_root_timestamp
+        payload ['time_elapsed']= {
+        'seconds': delta.seconds, 
+        'microseconds':delta.microseconds
+        }
 
         if self.mqttconnected:
             # publish the cmd message
             self.mqttclient.publish(
-                topic   = 'opentestbed/uinject/arrived',
+                topic   = 'opentestbed/uinject/arrived/',
                 payload = json.dumps(payload),
                 qos=2
             )

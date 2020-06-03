@@ -199,7 +199,9 @@ class RPL(eventBusClient.eventBusClient):
         This function parses the received packet, and if valid, updates the
         information needed to compute source routes.
         '''
-        
+        print "     -----DAO TUP-------     "
+        print tup 
+        print "     -----/DAO TUP-------     "
         # retrieve source and destination
         try:
             source                = tup[0]
@@ -274,6 +276,10 @@ class RPL(eventBusClient.eventBusClient):
         output              += ['- parents:']
         for p in parents:
             output          += ['   {0}:{1}'.format(u.formatIPv6Addr(self.networkPrefix),u.formatIPv6Addr(p))]
+            print "     -----DAO Parents-------     "
+            print (p) 
+            print (u.formatIPv6Addr(p)) 
+            print "     -----/DAO Parents-------     "
         output              += ['- children:']
         for p in children:
             output          += ['   {0}:{1}'.format(u.formatIPv6Addr(self.networkPrefix),u.formatIPv6Addr(p))]

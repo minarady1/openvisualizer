@@ -22,6 +22,7 @@ import bottle
 import netifaces as ni
 from bottle import view, response
 
+import networkInfo 
 import pathHelper
 
 if __name__ == "__main__":
@@ -315,7 +316,9 @@ class OpenVisualizerWeb(eventBusClient.eventBusClient, Cmd):
         return tmpl_data
 
     def _show_dag(self):
-        states, edges = self.app.topology.getDAG()
+        states , edges = self.app.topology.getDAG()
+        networkInfo.rpl_nodes_count = len(self.app.topology.topologyNodes)
+        networkInfo.rpl_churn = self.app.topology.computeChurn()
         return {'states': states, 'edges': edges}
 
     @view('connectivity.tmpl')
@@ -494,6 +497,7 @@ class OpenVisualizerWeb(eventBusClient.eventBusClient, Cmd):
                 try:
                     if ms.moteConnector.serialport == arg:
                         ms.triggerAction(moteState.moteState.TRIGGER_DAGROOT)
+                        networkInfo.set_root_timestamp = datetime.datetime.now()
                 except ValueError as err:
                     self.stdout.write(str(err))
                     self.stdout.write('\n')
