@@ -112,7 +112,7 @@ class ParserStatus(Parser.Parser):
                                     3,
                                     5,
                                     'MacStats',
-                                    '<BBhhBII',
+                                    '<BBhhBIIII',
                                     [
                                         'numSyncPkt' ,               # B
                                         'numSyncAck',                # B
@@ -121,6 +121,8 @@ class ParserStatus(Parser.Parser):
                                         'numDeSync',                 # B
                                         'numTicsOn',                 # I
                                         'numTicsTotal',              # I
+                                        'numTxTics',              # I
+                                        'numRxTics',              # I
                                     ],
                                 )
         self._addFieldsParser   (

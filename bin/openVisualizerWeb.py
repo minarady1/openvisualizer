@@ -118,6 +118,8 @@ class OpenVisualizerWeb(eventBusClient.eventBusClient, Cmd):
         self.web_srv.route(path='/moteview', callback=self._show_moteview)
         self.web_srv.route(path='/moteview/:moteid', callback=self._show_moteview)
         self.web_srv.route(path='/motedata/:moteid', callback=self._get_mote_data)
+        self.web_srv.route(path='/schedules/', callback=self._get_network_schedule_data)
+        self.web_srv.route(path='/motedata/', callback=self._get_mote_data)
         self.web_srv.route(path='/toggleDAGroot/:moteid', callback=self._toggle_dagroot)
         self.web_srv.route(path='/eventBus', callback=self._show_event_bus)
         self.web_srv.route(path='/routing', callback=self._show_routing)
@@ -262,37 +264,98 @@ class OpenVisualizerWeb(eventBusClient.eventBusClient, Cmd):
                 log.debug('Mote {0} not found in mote_states'.format(moteid))
             return '{"result" : "fail"}'
 
-    def _get_mote_data(self, moteid):
+    def _get_mote_data(self, moteid=None):
         """
         Collects data for the provided mote.
         :param moteid: 16-bit ID of mote
         """
-
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug('Get JSON data for moteid {0}'.format(moteid))
-        ms = self.app.get_mote_state(moteid)
-        if ms:
+        if (moteid):
             if log.isEnabledFor(logging.DEBUG):
-                log.debug('Found mote {0} in mote_states'.format(moteid))
-            states = {
-                ms.ST_IDMANAGER: ms.getStateElem(ms.ST_IDMANAGER).toJson('data'),
-                ms.ST_ASN: ms.getStateElem(ms.ST_ASN).toJson('data'),
-                ms.ST_ISSYNC: ms.getStateElem(ms.ST_ISSYNC).toJson('data'),
-                ms.ST_MYDAGRANK: ms.getStateElem(ms.ST_MYDAGRANK).toJson('data'),
-                ms.ST_KAPERIOD: ms.getStateElem(ms.ST_KAPERIOD).toJson('data'),
-                ms.ST_OUPUTBUFFER: ms.getStateElem(ms.ST_OUPUTBUFFER).toJson('data'),
-                ms.ST_BACKOFF: ms.getStateElem(ms.ST_BACKOFF).toJson('data'),
-                ms.ST_MACSTATS: ms.getStateElem(ms.ST_MACSTATS).toJson('data'),
-                ms.ST_SCHEDULE: ms.getStateElem(ms.ST_SCHEDULE).toJson('data'),
-                ms.ST_QUEUE: ms.getStateElem(ms.ST_QUEUE).toJson('data'),
-                ms.ST_NEIGHBORS: ms.getStateElem(ms.ST_NEIGHBORS).toJson('data'),
-                ms.ST_JOINED: ms.getStateElem(ms.ST_JOINED).toJson('data'),
-            }
+                log.debug('Get JSON data for moteid {0}'.format(moteid))
+            ms = self.app.get_mote_state(moteid)
+            if ms:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug('Found mote {0} in mote_states'.format(moteid))
+                states = {
+                    ms.ST_IDMANAGER: ms.getStateElem(ms.ST_IDMANAGER).toJson('data'),
+                    ms.ST_ASN: ms.getStateElem(ms.ST_ASN).toJson('data'),
+                    ms.ST_ISSYNC: ms.getStateElem(ms.ST_ISSYNC).toJson('data'),
+                    ms.ST_MYDAGRANK: ms.getStateElem(ms.ST_MYDAGRANK).toJson('data'),
+                    ms.ST_KAPERIOD: ms.getStateElem(ms.ST_KAPERIOD).toJson('data'),
+                    ms.ST_OUPUTBUFFER: ms.getStateElem(ms.ST_OUPUTBUFFER).toJson('data'),
+                    ms.ST_BACKOFF: ms.getStateElem(ms.ST_BACKOFF).toJson('data'),
+                    ms.ST_MACSTATS: ms.getStateElem(ms.ST_MACSTATS).toJson('data'),
+                    ms.ST_SCHEDULE: ms.getStateElem(ms.ST_SCHEDULE).toJson('data'),
+                    ms.ST_QUEUE: ms.getStateElem(ms.ST_QUEUE).toJson('data'),
+                    ms.ST_NEIGHBORS: ms.getStateElem(ms.ST_NEIGHBORS).toJson('data'),
+                    ms.ST_JOINED: ms.getStateElem(ms.ST_JOINED).toJson('data'),
+                }
+            else:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug('Mote {0} not found in mote_states'.format(moteid))
+                states = {}
+            return states
         else:
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug('Mote {0} not found in mote_states'.format(moteid))
+            mote_list = self.app.get_mote_dict().keys()
             states = {}
+            for m in mote_list:
+                ms = self.app.get_mote_state(m)
+                if ms:
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug('Found mote {0} in mote_states'.format(moteid))
+                    states [m] = {
+                        ms.ST_IDMANAGER: ms.getStateElem(ms.ST_IDMANAGER).toJson('data'),
+                        ms.ST_ASN: ms.getStateElem(ms.ST_ASN).toJson('data'),
+                        ms.ST_ISSYNC: ms.getStateElem(ms.ST_ISSYNC).toJson('data'),
+                        ms.ST_MYDAGRANK: ms.getStateElem(ms.ST_MYDAGRANK).toJson('data'),
+                        ms.ST_KAPERIOD: ms.getStateElem(ms.ST_KAPERIOD).toJson('data'),
+                        ms.ST_OUPUTBUFFER: ms.getStateElem(ms.ST_OUPUTBUFFER).toJson('data'),
+                        ms.ST_BACKOFF: ms.getStateElem(ms.ST_BACKOFF).toJson('data'),
+                        ms.ST_MACSTATS: ms.getStateElem(ms.ST_MACSTATS).toJson('data'),
+                        ms.ST_SCHEDULE: ms.getStateElem(ms.ST_SCHEDULE).toJson('data'),
+                        ms.ST_NEIGHBORS: ms.getStateElem(ms.ST_NEIGHBORS).toJson('data'),
+                        ms.ST_QUEUE: ms.getStateElem(ms.ST_QUEUE).toJson('data'),
+                        ms.ST_JOINED: ms.getStateElem(ms.ST_JOINED).toJson('data'),
+                    }
+                else:
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug('Mote {0} not found in mote_states'.format(moteid))
+                    states [m]= {}
+            
+            return states
+
+    def _get_network_schedule_data(self):
+        """
+        Collects net work schedule data (for all motes)
+        """
+        mote_list = self.app.get_mote_dict().keys()
+        states = {}
+        for m in mote_list:
+            ms = self.app.get_mote_state(m)
+            if ms:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug('Found mote {0} in mote_states'.format(moteid))
+                states [m] = {
+                    ms.ST_SCHEDULE: ms.getStateElem(ms.ST_SCHEDULE).toJson('data'),
+                    #ms.ST_IDMANAGER: ms.getStateElem(ms.ST_IDMANAGER).toJson('data'),
+                    #ms.ST_ASN: ms.getStateElem(ms.ST_ASN).toJson('data'),
+                    #ms.ST_ISSYNC: ms.getStateElem(ms.ST_ISSYNC).toJson('data'),
+                    #ms.ST_MYDAGRANK: ms.getStateElem(ms.ST_MYDAGRANK).toJson('data'),
+                    #ms.ST_KAPERIOD: ms.getStateElem(ms.ST_KAPERIOD).toJson('data'),
+                    #ms.ST_OUPUTBUFFER: ms.getStateElem(ms.ST_OUPUTBUFFER).toJson('data'),
+                    #ms.ST_BACKOFF: ms.getStateElem(ms.ST_BACKOFF).toJson('data'),
+                    #ms.ST_MACSTATS: ms.getStateElem(ms.ST_MACSTATS).toJson('data'),
+                    #ms.ST_NEIGHBORS: ms.getStateElem(ms.ST_NEIGHBORS).toJson('data'),
+                    #ms.ST_QUEUE: ms.getStateElem(ms.ST_QUEUE).toJson('data'),
+                    #ms.ST_JOINED: ms.getStateElem(ms.ST_JOINED).toJson('data'),
+                }
+            else:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug('Mote {0} not found in mote_states'.format(moteid))
+                states [m]= {}
+        
         return states
+
 
     def _set_wireshark_debug(self, enabled):
         """

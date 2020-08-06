@@ -199,9 +199,7 @@ class RPL(eventBusClient.eventBusClient):
         This function parses the received packet, and if valid, updates the
         information needed to compute source routes.
         '''
-        print "     -----DAO TUP-------     "
-        print tup 
-        print "     -----/DAO TUP-------     "
+        
         # retrieve source and destination
         try:
             source                = tup[0]

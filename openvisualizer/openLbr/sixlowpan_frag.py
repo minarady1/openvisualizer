@@ -41,7 +41,7 @@ class Fragmentor(object):
     # If L2 security is not active in the network we can use up to 96 bytes of payload per fragment.
     # Since openvisualizer is not aware of the security configuration of the network, we use by default a smaller
     # fragment payload size.
-    MAX_FRAGMENT_SIZE = 80
+    MAX_FRAGMENT_SIZE = 96
     FRAG1_HDR_SIZE = 4
     FRAGN_HDR_SIZE = 5
 
