@@ -179,6 +179,7 @@ class StateScheduleRow(StateElem):
             self.data[0]['type']            = typeCellType.typeCellType()
         self.data[0]['type'].update(notif.type)
         self.data[0]['shared']              = notif.shared
+        self.data[0]['cellRadioSetting']    = notif.cellRadioSetting
         self.data[0]['channelOffset']       = notif.channelOffset
         if 'neighbor' not in self.data[0]:
             self.data[0]['neighbor']        = typeAddr.typeAddr()
@@ -266,6 +267,7 @@ class StateNeighborsRow(StateElem):
                                     notif.addr_bodyH,
                                     notif.addr_bodyL)
         self.data[0]['DAGrank']                  = notif.DAGrank
+        self.data[0]['cellRadioSetting']         = notif.cellRadioSetting
         if 'rssi' not in self.data[0]:
             self.data[0]['rssi']                 = typeRssi.typeRssi()
         self.data[0]['rssi'].update(notif.rssi)
@@ -513,6 +515,7 @@ class moteState(eventBusClient.eventBusClient):
                                                         'slotOffset',
                                                         'type',
                                                         'shared',
+                                                        'cellRadioSetting',
                                                         'channelOffset',
                                                         'neighbor',
                                                         'numRx',
@@ -535,6 +538,7 @@ class moteState(eventBusClient.eventBusClient):
                                                         'switchStabilityCounter',
                                                         'addr',
                                                         'DAGrank',
+                                                        'cellRadioSetting',
                                                         'rssi',
                                                         'numRx',
                                                         'numTx',

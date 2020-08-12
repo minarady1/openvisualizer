@@ -127,12 +127,13 @@ class ParserStatus(Parser.Parser):
                                     3,
                                     6,
                                     'ScheduleRow',
-                                    '<BHBBBBQQBBBBHH',
+                                    '<BHBBBBBQQBBBBHH',
                                     [
                                         'row',                       # B
                                         'slotOffset',                # H 
                                         'type',                      # B
                                         'shared',                    # B
+                                        'cellRadioSetting',          # B
                                         'channelOffset',             # B
                                         'neighbor_type',             # B
                                         'neighbor_bodyH',            # Q
@@ -207,7 +208,7 @@ class ParserStatus(Parser.Parser):
                                     3,
                                     9,
                                     'NeighborsRow',
-                                    '<BBBBBBBQQHbBBBBBHHBBBBB',
+                                    '<BBBBBBBQQHBbBBBBBHHBBBBB',
                                     [
                                         'row',                       # B
                                         'used',                      # B
@@ -219,6 +220,7 @@ class ParserStatus(Parser.Parser):
                                         'addr_bodyH',                # Q
                                         'addr_bodyL',                # Q
                                         'DAGrank',                   # H
+                                        'cellRadioSetting',          # B
                                         'rssi',                      # b
                                         'numRx',                     # B
                                         'numTx',                     # B
