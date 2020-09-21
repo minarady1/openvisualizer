@@ -17,6 +17,7 @@ import copy
 import time
 import threading
 import json
+import networkInfo
 
 from openvisualizer.moteConnector import ParserStatus
 from openvisualizer.eventBus      import eventBusClient
@@ -26,7 +27,6 @@ from openvisualizer.openType      import openType,         \
                                          typeCellType,     \
                                          typeComponent,    \
                                          typeRssi
-
 class OpenEncoder(json.JSONEncoder):
     def default(self, obj):
         if   isinstance(obj, (StateElem,openType.openType)):
@@ -179,7 +179,7 @@ class StateScheduleRow(StateElem):
             self.data[0]['type']            = typeCellType.typeCellType()
         self.data[0]['type'].update(notif.type)
         self.data[0]['shared']              = notif.shared
-        self.data[0]['cellRadioSetting']    = notif.cellRadioSetting
+        self.data[0]['cellRadioSetting']    = networkInfo.radioSettingMap[notif.cellRadioSetting]
         self.data[0]['channelOffset']       = notif.channelOffset
         if 'neighbor' not in self.data[0]:
             self.data[0]['neighbor']        = typeAddr.typeAddr()
@@ -267,7 +267,7 @@ class StateNeighborsRow(StateElem):
                                     notif.addr_bodyH,
                                     notif.addr_bodyL)
         self.data[0]['DAGrank']                  = notif.DAGrank
-        self.data[0]['cellRadioSetting']         = notif.cellRadioSetting
+        self.data[0]['cellRadioSetting']         = networkInfo.radioSettingMap[notif.cellRadioSetting]
         if 'rssi' not in self.data[0]:
             self.data[0]['rssi']                 = typeRssi.typeRssi()
         self.data[0]['rssi'].update(notif.rssi)
