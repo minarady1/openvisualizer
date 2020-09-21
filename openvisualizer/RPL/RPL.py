@@ -199,7 +199,7 @@ class RPL(eventBusClient.eventBusClient):
         This function parses the received packet, and if valid, updates the
         information needed to compute source routes.
         '''
-        
+        parentRadio  = 0
         # retrieve source and destination
         try:
             source                = tup[0]
@@ -277,6 +277,7 @@ class RPL(eventBusClient.eventBusClient):
         output              += ['- children:']
         for p in children:
             output          += ['   {0}:{1}'.format(u.formatIPv6Addr(self.networkPrefix),u.formatIPv6Addr(p))]
+        output              += ["Parent link PHY  {}".format(dao_header['RPL_Reserved'])]
         output               = '\n'.join(output)
         if log.isEnabledFor(logging.DEBUG):
             log.debug(output)
@@ -296,7 +297,7 @@ class RPL(eventBusClient.eventBusClient):
         # update parents information with parents collected -- calls topology module.
         self.dispatch(          
             signal          = 'updateParents',
-            data            =  (tuple(source),parents)  
+            data            =  (tuple(source),parents,dao_header['RPL_Reserved'])
         )
         
         #with self.dataLock:
