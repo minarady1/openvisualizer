@@ -92,6 +92,7 @@ class OpenVisualizerCli(Cmd):
                 try:
                     if ms.moteConnector.serialport==arg:
                         ms.triggerAction(moteState.moteState.TRIGGER_DAGROOT)
+                        networkInfo.set_root_timestamp = datetime.datetime.now()
                 except ValueError as err:
                     self.stdout.write(err)
     
